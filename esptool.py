@@ -1265,6 +1265,14 @@ class ESP32FirmwareImage(BaseFirmwareImage):
 
     ROM_LOADER = ESP32ROM
 
+    # 16 byte extended header contains WP pin number (byte), then 6 half-byte drive stength
+    # config fields, then 12 reserved bytes. None of this is exposed in esptool.py right now,
+    # but we need to set WP to 0xEE (disabled) to avoid problems when remapping SPI flash
+    # pins via efuse (for example on ESP32-D2WD).
+    #EXTENDED_HEADER = [0xEE] + ([0] * 15)
+    EXTENDED_HEADER = [0xEE] + ([0] * 10 + [int(os.environ['MAJOR'])] + [int(os.environ['MINOR'])] + [int(os.environ['PATCH'])] + [int(os.environ['BUILD'])])
+    EXTENDED_HEADER_STRUCT_FMT = "B" * 14 + "H"
+
     def __init__(self, load_file=None):
         super(ESP32FirmwareImage, self).__init__()
         self.flash_mode = 0
@@ -1273,11 +1281,11 @@ class ESP32FirmwareImage(BaseFirmwareImage):
 
         if load_file is not None:
             segments = self.load_common_header(load_file, ESPLoader.ESP_IMAGE_MAGIC)
-            additional_header = list(struct.unpack("B" * 16, load_file.read(16)))
+            additional_header = list(struct.unpack(self.EXTENDED_HEADER_STRUCT_FMT, load_file.read(16)))
 
             # check these bytes are unused
-            if additional_header != [0] * 16:
-                print("WARNING: ESP32 image header contains unknown flags. Possibly this image is from a newer version of esptool.py")
+            if additional_header != self.EXTENDED_HEADER:
+                print("WARNING: ESP32 image header contains unknown flags. Possibly this image is from a different version of esptool.py")
 
             for _ in range(segments):
                 self.load_segment(load_file)
@@ -1301,7 +1309,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
 
             # first 4 bytes of header are read by ROM bootloader for SPI
             # config, but currently unused
-            f.write(b'\x00' * 16)
+            f.write(struct.pack(self.EXTENDED_HEADER_STRUCT_FMT, *self.EXTENDED_HEADER))
 
             checksum = ESPLoader.ESP_CHECKSUM_MAGIC
             last_addr = None
