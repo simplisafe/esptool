@@ -1270,7 +1270,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
     # but we need to set WP to 0xEE (disabled) to avoid problems when remapping SPI flash
     # pins via efuse (for example on ESP32-D2WD).
     #EXTENDED_HEADER = [0xEE] + ([0] * 15)
-    EXTENDED_HEADER = [0xEE] + ([0] * 10 + [int(os.environ['MAJOR'])] + [int(os.environ['MINOR'])] + [int(os.environ['PATCH'])] + [int(os.environ['BUILD'])])
+    EXTENDED_HEADER = [0xEE] + ([0] * 10 + [int(os.getenv('MAJOR', 99))] + [int(os.getenv('MINOR', 99))] + [int(os.getenv('PATCH', 99))] + [int(os.getenv('BUILD',99))])
     EXTENDED_HEADER_STRUCT_FMT = "B" * 14 + "H"
 
     def __init__(self, load_file=None):
