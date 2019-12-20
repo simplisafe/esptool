@@ -1501,6 +1501,7 @@ class BaseFirmwareImage(object):
     def save_segment(self, f, segment, checksum=None):
         """ Save the next segment to the image file, return next checksum value if provided """
         segment_data = self.maybe_patch_segment_data(f, segment.data)
+        print("save segment offset: 0x%08X addr: 0x%08X size: 0x%08X" % (f.tell(), segment.addr, len(segment.data)))
         f.write(struct.pack('<II', segment.addr, len(segment_data)))
         f.write(segment_data)
         if checksum is not None:
@@ -1838,6 +1839,18 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                 checksum = self.save_segment(f, segment, checksum)
                 total_segments += 1
 
+            # old versions of at_upgrade and at_legacy_upgrade expect exactly 8 segments
+            if os.path.split(filename)[1] == 'esp-at.bin':
+                target = 8 - (1 if self.secure_pad else 0)
+                while total_segments < target:
+                    pad_segment = ImageSegment(0, b'\x00' * 16, f.tell())
+                    checksum = self.save_segment(f, pad_segment, checksum)
+                    total_segments += 1
+                if total_segments > 8:
+                    raise Exception('invalid segment count: %d' % total_segments)
+
+            print("flash segments: %d ram segments: %d" % (len(flash_segments), len(ram_segments)))
+
             if self.secure_pad:
                 # pad the image so that after signing it will end on a a 64KB boundary.
                 # This ensures all mapped flash content will be verified.
@@ -1922,15 +1935,39 @@ class ESP32FirmwareImage(BaseFirmwareImage):
             return (ln & 0x0F) + ((hn & 0x0F) << 4)
 
         append_digest = 1 if self.append_digest else 0
+		
+		# After the build these commands will help verify the image is correct
+        # check magic  : hexdump -s 0 -n 2 build/esp-at.bin
+        # check version: hexdump -s 19 -n 4 build/esp-at.bin
+        # check sha    : hexdump -s 176 -n 32  build/esp-at.bin
+		
 
-        fields = [self.wp_pin,
-                  join_byte(self.clk_drv, self.q_drv),
-                  join_byte(self.d_drv, self.cs_drv),
-                  join_byte(self.hd_drv, self.wp_drv),
-                  self.ROM_LOADER.IMAGE_CHIP_ID,
-                  self.min_rev]
-        fields += [0] * 8  # padding
-        fields += [append_digest]
+        # Note: BUILD must is truncated to an 8-bit integer. older versions of AT+VERSION expected
+		# a 16 bit BUILD ID. The build system for the wifi module will ensure BUIILD
+		# is never greater than 255. Older versions of esptool did not use the byte
+		# after build.
+		
+        major = int(os.getenv('MAJOR', 0))
+        minor = int(os.getenv('MINOR', 0))
+        patch = int(os.getenv('PATCH', 0))
+        build = int(os.getenv('BUILD', 0))
+        fields = [
+            self.wp_pin,
+            join_byte(self.clk_drv, self.q_drv),
+            join_byte(self.d_drv, self.cs_drv),
+            join_byte(self.hd_drv, self.wp_drv),
+            self.ROM_LOADER.IMAGE_CHIP_ID,
+            self.min_rev,
+            0,
+            0,
+            0,
+            0,
+            major,
+            minor,
+            patch,
+            build,
+            append_digest,
+        ]
 
         packed = struct.pack(self.EXTENDED_HEADER_STRUCT_FMT, *fields)
         save_file.write(packed)
