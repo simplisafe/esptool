@@ -15,12 +15,15 @@
  * Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+/* Note: stub is deliberately loaded close to the very top
+   of available RAM, to reduce change of colliding with anything
+   else... */
 MEMORY {
-  iram : org = 0x40090000, len = 0x10000
-  dram : org = 0x3FFC0000, len = 0x20000
+  iram : org = 0x4010E000, len = 0x2000
+  dram : org = 0x3FFE8100, len = 0x13f00
 }
 
-ENTRY(stub_main)
+ENTRY(stub_main_8266)
 
 SECTIONS {
   .text : ALIGN(4) {
@@ -40,4 +43,7 @@ SECTIONS {
   } > dram
 }
 
-INCLUDE "rom_32.ld"
+INCLUDE "rom_8266.ld"
+
+PROVIDE(SPIFlashModeConfig = 0x40004568);
+PROVIDE(SPIParamCfg = 0x40004c2c);

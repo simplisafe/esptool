@@ -1,6 +1,5 @@
-/* Declarations for functions in ESP32 ROM code
- *
- * Copyright (c) 2016-2017 Espressif Systems (Shanghai) PTE LTD
+/*
+ * Copyright (c) 2016 Cesanta Software Limited
  * All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify it under
@@ -15,20 +14,33 @@
  * this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
  * Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+/* Note: stub is deliberately loaded close to the very top
+   of available RAM, to reduce change of colliding with anything
+   else... */
+MEMORY {
+  iram : org = 0x4009F000, len = 0x1000
+  dram : org = 0x3ffec000, len = 0x14000
+}
 
-/* Unlike ESP8266, most of these functions are declared in IDF headers
-   so we can include these directly.
-*/
-#include "rom/ets_sys.h"
-#include "rom/spi_flash.h"
-#include "rom/md5_hash.h"
-#include "rom/uart.h"
-#include "rom/efuse.h"
-#include "rom/rtc.h"
+ENTRY(stub_main)
 
-/* I think the difference is \r\n auto-escaping */
-#define uart_tx_one_char uart_tx_one_char2
+SECTIONS {
+  .text : ALIGN(4) {
+    *(.literal)
+    *(.text .text.*)
+  } > iram
+
+  .bss : ALIGN(4) {
+     _bss_start = ABSOLUTE(.);
+    *(.bss)
+	_bss_end = ABSOLUTE(.);
+  } > dram
+
+  .data : ALIGN(4) {
+    *(.data)
+    *(.rodata .rodata.*)
+  } > dram
+}
+
+INCLUDE "rom_32.ld"

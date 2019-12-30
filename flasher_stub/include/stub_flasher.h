@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016 Cesanta Software Limited
+ * Copyright (c) 2016 Cesanta Software Limited and 2016-2019 Espressif Systems (Shanghai) PTE LTD
+ *
  * All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify it under
@@ -18,11 +19,7 @@
 #ifndef STUB_FLASHER_H_
 #define STUB_FLASHER_H_
 
-#ifdef ESP8266
-#include <c_types.h>
-#else
 #include <stdint.h>
-#endif
 
 /* Maximum write block size, used for various buffers. */
 #define MAX_WRITE_BLOCK 0x4000
@@ -63,6 +60,9 @@ typedef enum {
   ESP_ERASE_REGION = 0xD1,
   ESP_READ_FLASH = 0xD2,
   ESP_RUN_USER_CODE = 0xD3,
+
+  /* Flash encryption debug mode supported command */
+  ESP_FLASH_ENCRYPT_DATA = 0xD4,
 } esp_command;
 
 /* Command request header */
